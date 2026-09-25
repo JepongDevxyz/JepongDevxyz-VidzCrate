@@ -29,6 +29,7 @@ jobs:
           test -f DevxyzCrate/app/build.gradle.kts
           test -f DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
           test -f DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorViewModel.kt
+          grep -q 'import androidx.compose.foundation.border' DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/ui/HomeScreens.kt || sed -i '/import androidx.compose.foundation.background/a import androidx.compose.foundation.border' DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/ui/HomeScreens.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
