@@ -166,7 +166,7 @@ s = s.replace(
 '''        Row(Modifier.fillMaxWidth().height(38.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
             MiniAction(Icons.Rounded.ContentCut, "Split", viewModel::splitSelected)''',
 '''        Row(Modifier.fillMaxWidth().height(40.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-            MiniAction(Icons.Rounded.Close, "Done") { viewModel.selectClip(null) }
+            MiniAction(Icons.Rounded.Close, "Done", onClick = { viewModel.selectClip(null) })
             MiniAction(Icons.Rounded.ContentCut, "Split", viewModel::splitSelected)''')
 s = s.replace('private fun TimelineArea(state: EditorUiState, viewModel: EditorViewModel, modifier: Modifier = Modifier) {', 'private fun TimelineArea(state: EditorUiState, viewModel: EditorViewModel, isPlaying: Boolean, modifier: Modifier = Modifier) {')
 s = s.replace(
