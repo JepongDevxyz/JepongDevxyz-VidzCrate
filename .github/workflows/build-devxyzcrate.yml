@@ -1,8 +1,8 @@
-name: DevxyzCrate v0.4 Rebuild APK
+name: DevxyzCrate v0.5 Visual APK
 
 on:
   push:
-    branches: [ rebuild/devxyzcrate-v04 ]
+    branches: [ rebuild/devxyzcrate-v05-visual ]
   workflow_dispatch:
 
 jobs:
@@ -13,16 +13,16 @@ jobs:
       - name: Checkout bootstrap
         uses: actions/checkout@v4
 
-      - name: Reconstruct v0.4 source
+      - name: Reconstruct v0.5 source
         shell: bash
         run: |
-          cat .bootstrap_v04/chunk_*.b64 > DevxyzCrate-v04.b64
-          base64 --decode DevxyzCrate-v04.b64 > DevxyzCrate-v04.zip
+          cat .bootstrap_v05/chunk_*.b64 > DevxyzCrate-v05.b64
+          base64 --decode DevxyzCrate-v05.b64 > DevxyzCrate-v05.zip
           mkdir -p source
-          unzip -q DevxyzCrate-v04.zip -d source
+          unzip -q DevxyzCrate-v05.zip -d source
+          unzip -t DevxyzCrate-v05.zip
           test -f source/settings.gradle.kts
           test -f source/app/build.gradle.kts
-          unzip -t DevxyzCrate-v04.zip
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -50,14 +50,14 @@ jobs:
         shell: bash
         run: |
           test -s source/app/build/outputs/apk/debug/app-debug.apk
-          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.4-rebuild-debug.apk
-          unzip -t DevxyzCrate-v0.4-rebuild-debug.apk
-          sha256sum DevxyzCrate-v0.4-rebuild-debug.apk
-          ls -lh DevxyzCrate-v0.4-rebuild-debug.apk
+          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.5-visual-debug.apk
+          unzip -t DevxyzCrate-v0.5-visual-debug.apk
+          sha256sum DevxyzCrate-v0.5-visual-debug.apk
+          ls -lh DevxyzCrate-v0.5-visual-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DevxyzCrate-v0.4-rebuild-debug-apk
-          path: DevxyzCrate-v0.4-rebuild-debug.apk
+          name: DevxyzCrate-v0.5-visual-debug-apk
+          path: DevxyzCrate-v0.5-visual-debug.apk
           if-no-files-found: error
