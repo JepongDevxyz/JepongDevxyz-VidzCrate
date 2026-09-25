@@ -1,8 +1,8 @@
-name: DevxyzCrate v0.5 Visual APK
+name: DevxyzCrate v0.6 Smooth UX APK
 
 on:
   push:
-    branches: [ rebuild/devxyzcrate-v05-visual ]
+    branches: [ rebuild/devxyzcrate-v06-smooth ]
   workflow_dispatch:
 
 jobs:
@@ -23,6 +23,14 @@ jobs:
           unzip -t DevxyzCrate-v05.zip
           test -f source/settings.gradle.kts
           test -f source/app/build.gradle.kts
+
+      - name: Apply v0.6 smooth UX patch
+        shell: bash
+        run: |
+          python .v06_ux_patch.py
+          grep -q 'versionName = "0.6.0"' source/app/build.gradle.kts
+          grep -q 'BackHandler' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
+          grep -q 'detectTransformGestures' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -50,14 +58,14 @@ jobs:
         shell: bash
         run: |
           test -s source/app/build/outputs/apk/debug/app-debug.apk
-          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.5-visual-debug.apk
-          unzip -t DevxyzCrate-v0.5-visual-debug.apk
-          sha256sum DevxyzCrate-v0.5-visual-debug.apk
-          ls -lh DevxyzCrate-v0.5-visual-debug.apk
+          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.6-smooth-debug.apk
+          unzip -t DevxyzCrate-v0.6-smooth-debug.apk
+          sha256sum DevxyzCrate-v0.6-smooth-debug.apk
+          ls -lh DevxyzCrate-v0.6-smooth-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DevxyzCrate-v0.5-visual-debug-apk
-          path: DevxyzCrate-v0.5-visual-debug.apk
+          name: DevxyzCrate-v0.6-smooth-debug-apk
+          path: DevxyzCrate-v0.6-smooth-debug.apk
           if-no-files-found: error
