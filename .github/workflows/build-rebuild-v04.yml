@@ -61,6 +61,30 @@ jobs:
           cp DevxyzCrate/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.4-rebuild-debug.apk
           ls -lh DevxyzCrate-v0.4-rebuild-debug.apk
 
+      - name: Emulator install and launch smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r DevxyzCrate/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am force-stop com.jepongdevxyz.vidcrate
+            adb shell monkey -p com.jepongdevxyz.vidcrate -c android.intent.category.LAUNCHER 1
+            sleep 5
+            PID="$(adb shell pidof com.jepongdevxyz.vidcrate | tr -d '\r')"
+            test -n "$PID"
+            adb exec-out screencap -p > DevxyzCrate-v0.4-home.png
+
+      - name: Upload emulator screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevxyzCrate-v0.4-emulator-home
+          path: DevxyzCrate-v0.4-home.png
+          if-no-files-found: error
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
