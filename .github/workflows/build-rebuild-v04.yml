@@ -18,11 +18,17 @@ jobs:
         run: |
           cat .rebuild_v04/chunk_*.b64 > DevxyzCrate-rebuild-v0.4-source.b64
           base64 --decode DevxyzCrate-rebuild-v0.4-source.b64 > DevxyzCrate-rebuild-v0.4-source.zip
-          unzip -q DevxyzCrate-rebuild-v0.4-source.zip
+          unzip -o DevxyzCrate-rebuild-v0.4-source.zip || true
+          test -d devxyzcrate_rebuild
           mv devxyzcrate_rebuild DevxyzCrate
+
+          cp .rebuild_v04_patch/build.gradle.kts DevxyzCrate/app/build.gradle.kts
+          cat .rebuild_v04_patch/EditorViewModel.part1 .rebuild_v04_patch/EditorViewModel.part2 >             DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorViewModel.kt
+
           test -f DevxyzCrate/settings.gradle.kts
           test -f DevxyzCrate/app/build.gradle.kts
           test -f DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
+          test -f DevxyzCrate/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorViewModel.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
