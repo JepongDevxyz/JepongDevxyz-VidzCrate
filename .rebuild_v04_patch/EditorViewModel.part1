@@ -1,0 +1,180 @@
+package com.jepongdevxyz.vidcrate.editor
+
+import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.jepongdevxyz.vidcrate.media.Media3ExportEngine
+import com.jepongdevxyz.vidcrate.media.MediaProbe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.UUID
+
+class EditorViewModel(application: Application) : AndroidViewModel(application) {
+    private val _ui = MutableStateFlow(EditorUiState())
+    val ui: StateFlow<EditorUiState> = _ui.asStateFlow()
+
+    private val undoStack = ArrayDeque<EditorProject>()
+    private val redoStack = ArrayDeque<EditorProject>()
+    private var exportEngine: Media3ExportEngine? = null
+
+    init {
+        ProjectStore.load(application)?.let { saved ->
+            _ui.value = EditorUiState(
+                project = saved,
+                exportSettings = ExportSettings(
+                    height = saved.canvasHeight,
+                    frameRate = saved.frameRate,
+                    codec = ExportCodec.H264,
+                    includeAudio = true,
+                ),
+            )
+        }
+    }
+
+    fun setPlayhead(ms: Long) = _ui.update { it.copy(playheadMs = ms.coerceIn(0L, it.project.durationMs.coerceAtLeast(0L))) }
+    fun setZoom(pxPerSecond: Float) = _ui.update { it.copy(zoomPxPerSecond = pxPerSecond.coerceIn(36f, 220f)) }
+    fun selectClip(id: String?) = _ui.update { it.copy(selectedClipId = id) }
+    fun clearMessage() = _ui.update { it.copy(lastMessage = null) }
+
+    private fun persist(project: EditorProject) = ProjectStore.save(getApplication(), project)
+
+    private fun commit(project: EditorProject, selected: String? = _ui.value.selectedClipId) {
+        undoStack.addLast(_ui.value.project)
+        while (undoStack.size > 80) undoStack.removeFirst()
+        redoStack.clear()
+        _ui.update { it.copy(project = project, selectedClipId = selected, canUndo = true, canRedo = false) }
+        persist(project)
+    }
+
+    fun undo() {
+        val previous = undoStack.removeLastOrNull() ?: return
+        redoStack.addLast(_ui.value.project)
+        _ui.update { it.copy(project = previous, selectedClipId = null, canUndo = undoStack.isNotEmpty(), canRedo = true) }
+        persist(previous)
+    }
+
+    fun redo() {
+        val next = redoStack.removeLastOrNull() ?: return
+        undoStack.addLast(_ui.value.project)
+        _ui.update { it.copy(project = next, selectedClipId = null, canUndo = true, canRedo = redoStack.isNotEmpty()) }
+        persist(next)
+    }
+
+    fun createProject(
+        name: String,
+        aspectRatio: String,
+        canvasWidth: Int,
+        canvasHeight: Int,
+        frameRate: Int,
+        background: ProjectBackground,
+    ) {
+        undoStack.clear(); redoStack.clear()
+        val project = EditorProject(
+            name = name.ifBlank { "My Project" },
+            aspectRatio = aspectRatio,
+            canvasWidth = canvasWidth.coerceAtLeast(1),
+            canvasHeight = canvasHeight.coerceAtLeast(1),
+            frameRate = frameRate.coerceIn(1, 120),
+            background = background,
+        )
+        persist(project)
+        _ui.value = EditorUiState(
+            project = project,
+            exportSettings = ExportSettings(height = project.canvasHeight, frameRate = project.frameRate),
+            lastMessage = "Project created",
+        )
+    }
+
+    fun toggleTrackMute(trackId: String) {
+        commit(_ui.value.project.copy(tracks = _ui.value.project.tracks.map { if (it.id == trackId) it.copy(muted = !it.muted) else it }))
+    }
+
+    fun toggleTrackLock(trackId: String) {
+        commit(_ui.value.project.copy(tracks = _ui.value.project.tracks.map { if (it.id == trackId) it.copy(locked = !it.locked) else it }))
+    }
+
+    fun importMedia(uris: List<Uri>, preferredKind: TrackKind? = null) {
+        if (uris.isEmpty()) return
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            uris.forEach { uri -> runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
+            val probed = withContext(Dispatchers.IO) { uris.map { MediaProbe.probe(context, it) } }
+            var project = _ui.value.project
+            var selected: String? = null
+            probed.forEach { media ->
+                val kind = preferredKind ?: when {
+                    media.mimeType.startsWith("audio/") -> TrackKind.AUDIO
+                    else -> TrackKind.VIDEO
+                }
+                val track = project.tracks.firstOrNull { it.kind == kind }
+                    ?: EditorTrack("track-${UUID.randomUUID()}", kind.name.lowercase(), kind)
+                val appendAt = track.clips.maxOfOrNull { it.endMs } ?: 0L
+                val id = UUID.randomUUID().toString()
+                val clip = EditorClip(
+                    id = id,
+                    trackId = track.id,
+                    uri = media.uri.toString(),
+                    displayName = media.name,
+                    mimeType = media.mimeType,
+                    sourceDurationMs = media.durationMs,
+                    startMs = appendAt,
+                    trimEndMs = media.durationMs,
+                )
+                val updatedTrack = track.copy(clips = (track.clips + clip).sortedBy(EditorClip::startMs))
+                project = if (project.tracks.any { it.id == track.id }) {
+                    project.copy(tracks = project.tracks.map { if (it.id == track.id) updatedTrack else it })
+                } else project.copy(tracks = project.tracks + updatedTrack)
+                selected = id
+            }
+            commit(project, selected)
+            _ui.update { it.copy(lastMessage = "Imported ${probed.size} media item${if (probed.size == 1) "" else "s"}") }
+        }
+    }
+
+    fun addText(text: String = "Beautiful Nature") {
+        val state = _ui.value
+        val track = state.project.tracks.first { it.kind == TrackKind.TEXT }
+        val duration = 3500L
+        val clip = EditorClip(
+            id = UUID.randomUUID().toString(),
+            trackId = track.id,
+            displayName = text,
+            sourceDurationMs = duration,
+            startMs = state.playheadMs,
+            trimEndMs = duration,
+            text = text,
+        )
+        commit(state.project.copy(tracks = state.project.tracks.map { if (it.id == track.id) it.copy(clips = it.clips + clip) else it }), clip.id)
+    }
+
+    private fun selectedClipPair(): Pair<EditorTrack, EditorClip>? {
+        val id = _ui.value.selectedClipId ?: return null
+        _ui.value.project.tracks.forEach { track -> track.clips.firstOrNull { it.id == id }?.let { return track to it } }
+        return null
+    }
+
+    fun deleteSelected() {
+        val (track, clip) = selectedClipPair() ?: return
+        if (track.locked) return locked()
+        commit(_ui.value.project.copy(tracks = _ui.value.project.tracks.map { t -> t.copy(clips = t.clips.filterNot { it.id == clip.id }) }), null)
+    }
+
+    fun duplicateSelected() {
+        val (track, clip) = selectedClipPair() ?: return
+        if (track.locked) return locked()
+        val copy = clip.copy(id = UUID.randomUUID().toString(), startMs = clip.endMs)
+        commit(_ui.value.project.copy(tracks = _ui.value.project.tracks.map { if (it.id == track.id) it.copy(clips = it.clips + copy) else it }), copy.id)
+    }
+
+    fun splitSelected() {
+        val (track, clip) = selectedClipPair() ?: return
+        if (track.locked) return locked()
+        val playhead = _ui.value.playheadMs
+        if (playhead <= clip.startMs + 100 || playhead >= clip.endMs - 100) {
