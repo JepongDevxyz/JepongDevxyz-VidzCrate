@@ -1,0 +1,83 @@
+            _ui.update { it.copy(lastMessage = "Move the playhead inside the selected clip to split") }
+            return
+        }
+        val localCut = playhead - clip.startMs
+        val left = clip.copy(trimEndMs = clip.trimStartMs + localCut)
+        val right = clip.copy(id = UUID.randomUUID().toString(), startMs = playhead, trimStartMs = clip.trimStartMs + localCut)
+        val clips = track.clips.filterNot { it.id == clip.id } + left + right
+        commit(_ui.value.project.copy(tracks = _ui.value.project.tracks.map { if (it.id == track.id) it.copy(clips = clips.sortedBy(EditorClip::startMs)) else it }), right.id)
+    }
+
+    fun trimSelectedStart(deltaMs: Long) = updateSelected { clip ->
+        val next = (clip.trimStartMs + deltaMs).coerceIn(0L, clip.trimEndMs - 100L)
+        val shift = next - clip.trimStartMs
+        clip.copy(trimStartMs = next, startMs = clip.startMs + shift)
+    }
+
+    fun trimSelectedEnd(deltaMs: Long) = updateSelected { clip ->
+        clip.copy(trimEndMs = (clip.trimEndMs + deltaMs).coerceIn(clip.trimStartMs + 100L, clip.sourceDurationMs))
+    }
+
+    fun rotateSelected() = updateSelected { it.copy(transform = it.transform.copy(rotationDegrees = (it.transform.rotationDegrees + 90f) % 360f)) }
+    fun setSelectedScale(scale: Float) = updateSelected { it.copy(transform = it.transform.copy(scale = scale.coerceIn(0.25f, 3f))) }
+    fun setSelectedOpacity(opacity: Float) = updateSelected { it.copy(transform = it.transform.copy(opacity = opacity.coerceIn(0f, 1f))) }
+    fun setSelectedFilter(filter: VideoFilter) = updateSelected { it.copy(transform = it.transform.copy(filter = filter)) }
+    fun nudgeSelected(deltaMs: Long) = updateSelected { it.copy(startMs = (it.startMs + deltaMs).coerceAtLeast(0L)) }
+    fun setSelectedText(value: String) = updateSelected { it.copy(text = value, displayName = value.ifBlank { "Text" }) }
+    fun setSelectedTextSize(size: Int) = updateSelected { it.copy(textStyle = it.textStyle.copy(fontSizeSp = size.coerceIn(12, 160))) }
+    fun setSelectedTextColor(color: Long) = updateSelected { it.copy(textStyle = it.textStyle.copy(colorArgb = color)) }
+    fun toggleSelectedTextBold() = updateSelected { it.copy(textStyle = it.textStyle.copy(bold = !it.textStyle.bold)) }
+    fun toggleSelectedTextItalic() = updateSelected { it.copy(textStyle = it.textStyle.copy(italic = !it.textStyle.italic)) }
+
+    private fun locked() { _ui.update { it.copy(lastMessage = "Track is locked") } }
+
+    private fun updateSelected(block: (EditorClip) -> EditorClip) {
+        val (track, clip) = selectedClipPair() ?: return
+        if (track.locked) return locked()
+        val changed = block(clip)
+        commit(_ui.value.project.copy(tracks = _ui.value.project.tracks.map { if (it.id == track.id) it.copy(clips = it.clips.map { c -> if (c.id == clip.id) changed else c }) else it }), changed.id)
+    }
+
+    fun setExportSettings(settings: ExportSettings) = _ui.update { it.copy(exportSettings = settings) }
+
+    fun export() {
+        val state = _ui.value
+        if (state.project.tracks.none { t -> t.clips.any { it.uri != null } }) {
+            _ui.update { it.copy(lastMessage = "Import a video or photo first") }
+            return
+        }
+        if (state.isExporting) return
+        val engine = Media3ExportEngine(getApplication())
+        exportEngine = engine
+        _ui.update { it.copy(isExporting = true, exportProgress = 0, lastMessage = "Export started") }
+        engine.export(
+            project = state.project,
+            settings = state.exportSettings,
+            onProgress = { p -> _ui.update { it.copy(exportProgress = p) } },
+            onComplete = { uri ->
+                _ui.update { it.copy(isExporting = false, exportProgress = 100, lastMessage = "Saved to Movies/DevxyzCrate", lastExportUri = uri.toString()) }
+                exportEngine = null
+            },
+            onError = { error ->
+                _ui.update { it.copy(isExporting = false, lastMessage = "Export failed: ${error.message ?: error.javaClass.simpleName}") }
+                exportEngine = null
+            },
+        )
+    }
+
+    fun cancelExport() {
+        exportEngine?.cancel(); exportEngine = null
+        _ui.update { it.copy(isExporting = false, lastMessage = "Export cancelled") }
+    }
+
+    fun shareLastExport() {
+        val uri = _ui.value.lastExportUri?.let(Uri::parse) ?: return
+        val context = getApplication<Application>()
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "video/mp4"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share DevxyzCrate export").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
