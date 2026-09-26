@@ -1,8 +1,8 @@
-name: DevxyzCrate v0.6 Smooth UX APK
+name: DevxyzCrate v0.7 Reference UI APK
 
 on:
   push:
-    branches: [ rebuild/devxyzcrate-v06-smooth ]
+    branches: [ rebuild/devxyzcrate-v07-reference ]
   workflow_dispatch:
 
 jobs:
@@ -29,8 +29,17 @@ jobs:
         run: |
           python .v06_ux_patch.py
           grep -q 'versionName = "0.6.0"' source/app/build.gradle.kts
-          grep -q 'BackHandler' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
           grep -q 'detectTransformGestures' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
+
+      - name: Apply v0.7 reference UI patch
+        shell: bash
+        run: |
+          base64 --decode .v07_reference.patch.gz.b64 | gzip -dc > /tmp/v07.patch
+          patch -p1 -d source < /tmp/v07.patch
+          grep -q 'versionName = "0.7.0"' source/app/build.gradle.kts
+          test -f source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/ReferenceFlowScreens.kt
+          grep -q 'ReferenceMediaImportScreen' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/DevxyzCrateApp.kt
+          grep -q 'AI UHD' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -58,14 +67,14 @@ jobs:
         shell: bash
         run: |
           test -s source/app/build/outputs/apk/debug/app-debug.apk
-          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.6-smooth-debug.apk
-          unzip -t DevxyzCrate-v0.6-smooth-debug.apk
-          sha256sum DevxyzCrate-v0.6-smooth-debug.apk
-          ls -lh DevxyzCrate-v0.6-smooth-debug.apk
+          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.7-reference-debug.apk
+          unzip -t DevxyzCrate-v0.7-reference-debug.apk
+          sha256sum DevxyzCrate-v0.7-reference-debug.apk
+          ls -lh DevxyzCrate-v0.7-reference-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DevxyzCrate-v0.6-smooth-debug-apk
-          path: DevxyzCrate-v0.6-smooth-debug.apk
+          name: DevxyzCrate-v0.7-reference-debug-apk
+          path: DevxyzCrate-v0.7-reference-debug.apk
           if-no-files-found: error
