@@ -1,8 +1,8 @@
-name: DevxyzCrate v0.9 CapCut Smooth HD APK
+name: DevxyzCrate v1.0 CapCut Reference Parity APK
 
 on:
   push:
-    branches: [ rebuild/devxyzcrate-v09-capcut-smooth-hd ]
+    branches: [ rebuild/devxyzcrate-v10-capcut-parity ]
   workflow_dispatch:
 
 jobs:
@@ -50,11 +50,21 @@ jobs:
           cat .v09_patch_chunks/chunk_*.b64 | base64 --decode | gzip -dc > /tmp/v09.patch
           patch -p1 -d source < /tmp/v09.patch
           grep -q 'versionName = "0.9.0"' source/app/build.gradle.kts
+
+      - name: Apply v1.0 CapCut parity patch
+        shell: bash
+        run: |
+          cat .v10_patch_chunks/chunk_*.b64 | base64 --decode | gzip -dc > /tmp/v10.patch
+          patch -p1 -d source < /tmp/v10.patch
+          grep -q 'versionName = "1.0.0"' source/app/build.gradle.kts
+          grep -q 'NoiseGateAudioProcessor' source/app/src/main/java/com/jepongdevxyz/vidcrate/media/NoiseGateAudioProcessor.kt
+          grep -q 'reduceNoise' source/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorModels.kt
+          grep -q 'CapExportSettingsScreen' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
+          grep -q 'CapEffectsPanel' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
+          grep -q 'ImportSource' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/ReferenceFlowScreens.kt
+          grep -q 'snapshotFlow' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
           grep -q 'METADATA_KEY_VIDEO_WIDTH' source/app/src/main/java/com/jepongdevxyz/vidcrate/media/MediaProbe.kt
-          grep -q 'createProjectFromMedia' source/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorViewModel.kt
-          grep -q 'smoothPlayhead' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
           grep -q 'DefaultEncoderFactory' source/app/src/main/java/com/jepongdevxyz/vidcrate/media/Media3ExportEngine.kt
-          grep -q 'HD 1080p' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -82,24 +92,24 @@ jobs:
         shell: bash
         run: |
           test -s source/app/build/outputs/apk/debug/app-debug.apk
-          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
-          unzip -t DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
-          sha256sum DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
-          ls -lh DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
+          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v1.0-capcut-parity-debug.apk
+          unzip -t DevxyzCrate-v1.0-capcut-parity-debug.apk
+          sha256sum DevxyzCrate-v1.0-capcut-parity-debug.apk
+          ls -lh DevxyzCrate-v1.0-capcut-parity-debug.apk
 
       - name: Package source
         shell: bash
         run: |
           cd source
-          zip -qr ../DevxyzCrate-v0.9-capcut-smooth-hd-source.zip . -x ".gradle/*" "app/build/*" "build/*"
+          zip -qr ../DevxyzCrate-v1.0-capcut-parity-source.zip . -x ".gradle/*" "app/build/*" "build/*"
           cd ..
-          unzip -t DevxyzCrate-v0.9-capcut-smooth-hd-source.zip
+          unzip -t DevxyzCrate-v1.0-capcut-parity-source.zip
 
       - name: Upload APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: DevxyzCrate-v0.9-capcut-smooth-hd
+          name: DevxyzCrate-v1.0-capcut-parity
           path: |
-            DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
-            DevxyzCrate-v0.9-capcut-smooth-hd-source.zip
+            DevxyzCrate-v1.0-capcut-parity-debug.apk
+            DevxyzCrate-v1.0-capcut-parity-source.zip
           if-no-files-found: error
