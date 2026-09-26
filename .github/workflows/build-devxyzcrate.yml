@@ -1,8 +1,8 @@
-name: DevxyzCrate v0.8 Functional Editor APK
+name: DevxyzCrate v0.9 CapCut Smooth HD APK
 
 on:
   push:
-    branches: [ rebuild/devxyzcrate-v08-functional ]
+    branches: [ rebuild/devxyzcrate-v09-capcut-smooth-hd ]
   workflow_dispatch:
 
 jobs:
@@ -43,10 +43,18 @@ jobs:
           cat .v08_patch_chunks/chunk_*.b64 | base64 --decode | gzip -dc > /tmp/v08.patch
           patch -p1 -d source < /tmp/v08.patch
           grep -q 'versionName = "0.8.0"' source/app/build.gradle.kts
-          grep -q 'GainProcessor' source/app/src/main/java/com/jepongdevxyz/vidcrate/media/Media3ExportEngine.kt
-          grep -q 'beginClipDrag' source/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorViewModel.kt
-          grep -q 'VideoEffect.BLUR' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
-          test -f source/CONCAT_FEATURE_NOTES.md
+
+      - name: Apply v0.9 smooth HD patch
+        shell: bash
+        run: |
+          cat .v09_patch_chunks/chunk_*.b64 | base64 --decode | gzip -dc > /tmp/v09.patch
+          patch -p1 -d source < /tmp/v09.patch
+          grep -q 'versionName = "0.9.0"' source/app/build.gradle.kts
+          grep -q 'METADATA_KEY_VIDEO_WIDTH' source/app/src/main/java/com/jepongdevxyz/vidcrate/media/MediaProbe.kt
+          grep -q 'createProjectFromMedia' source/app/src/main/java/com/jepongdevxyz/vidcrate/editor/EditorViewModel.kt
+          grep -q 'smoothPlayhead' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
+          grep -q 'DefaultEncoderFactory' source/app/src/main/java/com/jepongdevxyz/vidcrate/media/Media3ExportEngine.kt
+          grep -q 'HD 1080p' source/app/src/main/java/com/jepongdevxyz/vidcrate/ui/EditorScreen.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -74,24 +82,24 @@ jobs:
         shell: bash
         run: |
           test -s source/app/build/outputs/apk/debug/app-debug.apk
-          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.8-functional-debug.apk
-          unzip -t DevxyzCrate-v0.8-functional-debug.apk
-          sha256sum DevxyzCrate-v0.8-functional-debug.apk
-          ls -lh DevxyzCrate-v0.8-functional-debug.apk
+          cp source/app/build/outputs/apk/debug/app-debug.apk DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
+          unzip -t DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
+          sha256sum DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
+          ls -lh DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
 
       - name: Package source
         shell: bash
         run: |
           cd source
-          zip -qr ../DevxyzCrate-v0.8-functional-source.zip . -x ".gradle/*" "app/build/*" "build/*"
+          zip -qr ../DevxyzCrate-v0.9-capcut-smooth-hd-source.zip . -x ".gradle/*" "app/build/*" "build/*"
           cd ..
-          unzip -t DevxyzCrate-v0.8-functional-source.zip
+          unzip -t DevxyzCrate-v0.9-capcut-smooth-hd-source.zip
 
       - name: Upload APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: DevxyzCrate-v0.8-functional
+          name: DevxyzCrate-v0.9-capcut-smooth-hd
           path: |
-            DevxyzCrate-v0.8-functional-debug.apk
-            DevxyzCrate-v0.8-functional-source.zip
+            DevxyzCrate-v0.9-capcut-smooth-hd-debug.apk
+            DevxyzCrate-v0.9-capcut-smooth-hd-source.zip
           if-no-files-found: error
